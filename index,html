@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gmail Generator - All Variations</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        input[type="text"] {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            padding: 10px 20px;
+            background: #2050e0;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #1a45cc;
+        }
+        #results {
+            display: none;
+            background: #f5f7f9;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-size: clamp(14px, 4vw, 30px); /* Responsive font size */
+        }
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+        li {
+            padding: 5px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            overflow-wrap: break-word;
+            word-break: break-all;
+        }
+        .warning {
+            color: #856404;
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            display: none;
+        }
+        .copy-btn {
+            padding: 2px 8px;
+            font-size: clamp(12px, 2vw, 16px);
+            min-width: 60px;
+            background: #2050e0;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .copy-btn:hover {
+            background: #1a45cc;
+        }
+        .used {
+            opacity: 0.5;
+            text-decoration: line-through;
+        }
+        .used .copy-btn {
+            background: #666;
+        }
+
+        /* Responsive Design */
+        @media screen and (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            .container {
+                padding: 15px;
+            }
+            .input-group {
+                flex-direction: column;
+            }
+            .input-group button {
+                width: 100%;
+            }
+            #results {
+                padding: 15px;
+            }
+            li {
+                flex-direction: row;
+                gap: 8px;
+            }
+            .copy-btn {
+                min-width: 50px;
+                padding: 4px 6px;
+            }
+        }
+
+        @media screen and (max-width: 480px) {
+            h1 {
+                font-size: 24px;
+            }
+            p {
+                font-size: 14px;
+            }
+            #results {
+                padding: 10px;
+            }
+            li {
+                padding: 8px 0;
+            }
+        }
+
+        /* For very small screens */
+        @media screen and (max-width: 320px) {
+            .container {
+                padding: 10px;
+            }
+            #results {
+                padding: 8px;
+            }
+        }
+    </style>
+    </head>
+<body>
+    <div class="container">
+        <h1>Gmail Generator</h1>
+        <p>Generate all possible alternative Gmail email addresses using Gmail's DOT trick.</p>
+        
+        <form id="generator-form">
+            <div class="input-group">
+                <input type="text" 
+                       id="email-input" 
+                       placeholder="Enter your Gmail address" 
+                       required>
+                <button type="submit">Generate All Variations</button>
+            </div>
+        </form>
+
+        <div id="warning" class="warning">
+            Large number of variations detected. Generation might take a few seconds.
+        </div>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        // Load saved state
+        const savedState = {
+            originalEmail: localStorage.getItem('originalEmail') || '',
+            usedVariations: JSON.parse(localStorage.getItem('usedVariations')) || []
+        };
+
+        // Set the input value if there's a saved email
+        if (savedState.originalEmail) {
+            document.getElementById('email-input').value = savedState.originalEmail;
+        }
+
+        function sanitize(string) {
+            const div = document.createElement('div');
+            div.innerText = string;
+            
+            const reg = /[&<>"'/]/ig;
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#x27;',
+                "/": '&#x2F;',
+            };
+            
+            return div.innerText.replace(reg, (match)=>(map[match]));
+        }
+
+        String.prototype.splitByLastOccurrence = function(substring) {
+            const lastIndex = this.lastIndexOf(substring);
+            const before = this.slice(0, lastIndex);
+            const after = lastIndex >= 0 ? this.slice(lastIndex + 1) : '';
+            return [before, after];
+        }
+
+        async function copyToClipboard(text) {
+            try {
+                await navigator.clipboard.writeText(text);
+                return true;
+            } catch (err) {
+                console.error('Failed to copy text: ', err);
+                return false;
+            }
+        }
+
+        function generateCombinations(email) {
+            let [username, domain] = email.split("@");
+            let queue = [''];
+
+            if (!username || typeof username !== "string") username = 'generator';
+            if (!domain || typeof domain !== "string") domain = 'gmail.com';
+            username = username.trim().replace(/\./g, '');
+
+            const usernamePlusPart = username.splitByLastOccurrence('+');
+            const plus = usernamePlusPart[1] || null;
+            if (plus) username = usernamePlusPart[0];
+
+            for (let i = 0; i < username.length; i++) {
+                let nextQueue = [];
+
+                while (queue.length > 0) {
+                    let current = queue.shift();
+                    nextQueue.push(current + username[i]);
+                    
+                    if (i < username.length - 1) {
+                        nextQueue.push(current + username[i] + '.');
+                    }
+                }
+
+                queue = nextQueue;
+            }
+
+            let aliases = queue;
+            if (plus) aliases = aliases.map(a => `${a}+${plus}`);
+            aliases = aliases.map(a => `${a}@${domain}`);
+
+            return {
+                data: aliases,
+                total: Math.max((2 ** (username.length - 1)), 1)
+            };
+        }
+
+        function markVariationAsUsed(email, button, listItem) {
+            savedState.usedVariations.push(email);
+            localStorage.setItem('usedVariations', JSON.stringify(savedState.usedVariations));
+            
+            button.textContent = 'Used';
+            listItem.classList.add('used');
+        }
+
+        function generateAlternativeEmailAddresses(email) {
+            const sanitizedEmail = sanitize(email);
+            
+            // Save the original email
+            savedState.originalEmail = email;
+            localStorage.setItem('originalEmail', email);
+            
+            // Show warning if email length might generate many combinations
+            const username = email.split('@')[0].replace(/\./g, '');
+            if (username.length > 10) {
+                document.getElementById('warning').style.display = 'block';
+            } else {
+                document.getElementById('warning').style.display = 'none';
+            }
+
+            const combinations = generateCombinations(sanitizedEmail);
+            
+            let result = `<p>Total number of variations: <strong>${combinations.total}</strong></p>`;
+            result += "<ul>" + combinations.data
+                .map((emailVariation) => {
+                    const isUsed = savedState.usedVariations.includes(emailVariation);
+                    return `
+                        <li class="${isUsed ? 'used' : ''}">
+                            <button class="copy-btn" onclick="copyToClipboard('${emailVariation}').then(success => { 
+                                if(success) markVariationAsUsed('${emailVariation}', this, this.parentElement)
+                            })">${isUsed ? 'Used' : 'Copy'}</button>
+                            <span>${emailVariation}</span>
+                        </li>`;
+                })
+                .join("") + "</ul>";
+
+            const resultContainer = document.getElementById('results');
+            resultContainer.style.display = "block";
+            resultContainer.innerHTML = result;
+        }
+
+        // Form handler
+        document.getElementById('generator-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email-input').value;
+            generateAlternativeEmailAddresses(email);
+        });
+
+        // Generate variations on page load if there's a saved email
+        if (savedState.originalEmail) {
+            generateAlternativeEmailAddresses(savedState.originalEmail);
+        }
+
+        // Handle URL parameters if any
+        try {
+            const url = new URL(window.location.href);
+            const email = url.searchParams.get('email');
+            if (email) {
+                document.getElementById('email-input').value = email;
+                generateAlternativeEmailAddresses(email);
+            }
+        } catch (err) { /* do nothing */ }
+    </script>
+</body>
+</html>
