@@ -1,0 +1,13 @@
+{
+  "name": "gmail-listener",
+  "version": "1.0.0",
+  "description": "Gmail API integration",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "googleapis": "^105.0.0",
+    "dotenv": "^16.0.0"
+  }
+}
