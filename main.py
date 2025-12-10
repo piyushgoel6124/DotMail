@@ -71,8 +71,8 @@ def get_git_info(repo_path):
 
 def random_date_in_last_year():
     today = datetime.now()
-    start_date = today - timedelta(days=365)
-    random_days = random.randint(0, 364)
+    start_date = today - timedelta(days=300)
+    random_days = random.randint(0, 299)
     random_seconds = random.randint(0, 23*3600 + 3599)
     commit_date = start_date + timedelta(days=random_days, seconds=random_seconds)
     return commit_date
@@ -124,7 +124,17 @@ def run_fast_import_batch(repo_path, branch, name, email, parent_sha, updates):
         return True
 
     except Exception as e:
+        # If the pipe broke, it means git fast-import likely exited with an error.
+        # We need to read that error from stderr to know why.
         print(f"Fast-import Exception: {e}")
+        try:
+            outs, errs = proc.communicate(timeout=1)
+            if errs:
+                print(f"Git Error: {errs.decode()}")
+        except:
+            # If communicate fails or times out, try reading stderr directly if process is dead
+            if proc.poll() is not None and proc.stderr:
+                 print(f"Git Error (from stderr): {proc.stderr.read().decode()}")
         return False
 
 def run_slow_batch(repo_path, filename, updates):
@@ -138,7 +148,7 @@ def run_slow_batch(repo_path, filename, updates):
             f.write(full_content)
             
         # Add
-        subprocess.run(["git", "add", filename], cwd=repo_path, check=True)
+        subprocess.run(["git", "add", filename], cwd=repo_path, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         
         # Commit
         env = os.environ.copy()
